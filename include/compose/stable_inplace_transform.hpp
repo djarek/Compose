@@ -12,10 +12,6 @@
 
 #include <compose/stable_transform.hpp>
 
-#include <boost/asio/async_result.hpp>
-#include <type_traits>
-#include <utility>
-
 namespace compose
 {
 
@@ -23,7 +19,9 @@ template<typename T>
 struct converter
 {
     T make_result;
-    using result_type = decltype(std::declval<T&>()());
+
+    static T& declval();
+    using result_type = decltype(converter::declval()());
 
     template<typename U>
     operator U()
@@ -47,7 +45,7 @@ stable_inplace_transform(
 }
 
 template<typename T>
-converter(T&& t)->converter<typename std::decay<T>::type>;
+converter(T&& t)->converter<detail::remove_cref_t<T>>;
 
 #define COMPOSE_INPLACE_FWD(...)                                               \
     converter                                                                  \

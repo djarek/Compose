@@ -88,9 +88,7 @@ stable_transform(
 
 template<typename OperationBody, typename Executor, typename CompletionHandler>
 using stable_yield_token_t = yield_token<
-  detail::composed_op<OperationBody,
-                      detail::upcall_op<CompletionHandler, Executor>,
-                      true>&>;
+  detail::composed_op<OperationBody, CompletionHandler, Executor, true>>;
 
 } // namespace compose
 

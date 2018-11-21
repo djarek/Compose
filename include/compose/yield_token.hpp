@@ -10,12 +10,10 @@
 #ifndef COMPOSE_YIELD_TOKEN_HPP
 #define COMPOSE_YIELD_TOKEN_HPP
 
-#include <boost/asio/async_result.hpp>
-
 #include <compose/upcall_guard.hpp>
 
+#include <boost/asio/async_result.hpp>
 #include <type_traits>
-#include <utility>
 
 namespace compose
 {
@@ -34,13 +32,7 @@ public:
     /**
      * Construct a yield_token
      */
-    template<typename DeducedOp>
-    yield_token(DeducedOp&& op, bool is_continuation)
-      : op_{std::forward<DeducedOp>(op)}
-      , is_continuation_{is_continuation}
-
-    {
-    }
+    yield_token(ComposedOp& op, bool is_continuation);
 
     /**
      * Releases ownership of the composed operation, which may be used as a
@@ -48,10 +40,7 @@ public:
      *
      * @remark The yield_token is put in a moved-from state.
      */
-    auto release_operation() && -> typename std::decay<ComposedOp>::type
-    {
-        return std::move(op_);
-    }
+    auto release_operation() && -> ComposedOp;
 
     /**
      * Performs a post-upcall to the CompletionHandler associated with the
@@ -109,7 +98,7 @@ public:
     }
 
 private:
-    ComposedOp op_;
+    ComposedOp& op_;
     bool is_continuation_;
 };
 

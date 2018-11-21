@@ -88,9 +88,7 @@ unstable_transform(
 
 template<typename OperationBody, typename Executor, typename CompletionHandler>
 using unstable_yield_token_t = yield_token<
-  detail::composed_op<OperationBody,
-                      detail::upcall_op<CompletionHandler, Executor>,
-                      false>&>;
+  detail::composed_op<OperationBody, CompletionHandler, Executor, false>>;
 
 } // namespace compose
 

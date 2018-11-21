@@ -1,4 +1,4 @@
-//
+// std::forward<H>(h) rgstd : std::forward<Args>(args)
 // Copyright (c) 2018 Damian Jarek (damian dot jarek93 at gmail dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
@@ -10,13 +10,13 @@
 #ifndef COMPOSE_DETAIL_HANDLER_STORAGE_HPP
 #define COMPOSE_DETAIL_HANDLER_STORAGE_HPP
 
+#include <compose/detail/bind_handler_front.hpp>
+
+#include <boost/asio/associated_allocator.hpp>
+
 #ifndef COMPOSE_NO_RECYCLING_ALLOCATOR
 #include <boost/asio/detail/recycling_allocator.hpp>
 #endif // COMPOSE_NO_RECYCLING_ALLOCATOR
-
-#include <compose/detail/bind_handler_front.hpp>
-
-#include <boost/core/exchange.hpp>
 #include <memory>
 
 namespace compose
@@ -30,8 +30,29 @@ using default_allocator = boost::asio::detail::recycling_allocator<void>;
 using default_allocator = std::allocator<void>;
 #endif
 
-template<typename Handler, typename T, bool stable = false>
-struct handler_storage
+template<typename T, typename F>
+struct lean_ptr
+{
+    lean_ptr(lean_ptr&&) = delete;
+    lean_ptr(lean_ptr const&) = delete;
+    lean_ptr& operator=(lean_ptr&&) = delete;
+    lean_ptr& operator=(lean_ptr const&) = delete;
+
+    ~lean_ptr()
+    {
+        if (t_)
+            f_(t_);
+    }
+
+    T* t_;
+    F f_;
+};
+
+template<typename Handler, typename T, bool stable>
+struct handler_storage;
+
+template<typename Handler, typename T>
+struct handler_storage<Handler, T, false>
 {
     Handler handler_;
     T t_;
@@ -90,17 +111,20 @@ struct handler_storage<Handler, T, true>
 
             traits.deallocate(alloc, w, 1);
         };
-        std::unique_ptr<wrapper, decltype(deleter)> p{traits.allocate(alloc, 1),
-                                                      deleter};
-        traits.construct(alloc, p.get(), std::forward<Args>(args)...);
+
+        detail::lean_ptr<wrapper, decltype(deleter)> p{
+          traits.allocate(alloc, 1), deleter};
+        traits.construct(alloc, p.t_, std::forward<Args>(args)...);
         constructed = true;
         ::new (static_cast<void*>(&handler_)) Handler{std::forward<H>(h)};
-        wrapper_ = p.release();
+        wrapper_ = p.t_;
+        p.t_ = nullptr;
     }
 
     handler_storage(handler_storage&& other) noexcept
     {
-        wrapper_ = boost::exchange(other.wrapper_, nullptr);
+        wrapper_ = other.wrapper_;
+        other.wrapper_ = nullptr;
         ::new (static_cast<void*>(&handler_))
           Handler{std::move(other.handler_)};
     }
@@ -153,17 +177,23 @@ struct handler_storage<Handler, T, true>
     template<typename... Args>
     auto release_bind(Args&&... args)
     {
-        auto bound = detail::bind_handler_front(std::move(handler_),
-                                                std::forward<Args>(args)...);
-        typename std::allocator_traits<boost::asio::associated_allocator_t<
-          Handler>>::template rebind_alloc<wrapper>
-          alloc{boost::asio::get_associated_allocator(handler_)};
-        std::allocator_traits<decltype(alloc)> traits;
-        traits.destroy(alloc, wrapper_);
-        traits.deallocate(alloc, wrapper_, 1);
-        wrapper_ = nullptr;
-        handler_.~Handler();
-        return bound;
+        typename std::allocator_traits<
+          boost::asio::associated_allocator_t<Handler, default_allocator>>::
+          template rebind_alloc<wrapper>
+            alloc{boost::asio::get_associated_allocator(handler_,
+                                                        default_allocator{})};
+
+        auto const deleter = [&](wrapper* w) {
+            wrapper_ = nullptr;
+            std::allocator_traits<decltype(alloc)> traits;
+            traits.destroy(alloc, w);
+            traits.deallocate(alloc, w, 1);
+            handler_.~Handler();
+        };
+
+        detail::lean_ptr<wrapper, decltype(deleter)> p{wrapper_, deleter};
+        return detail::bind_handler_front(std::move(handler_),
+                                          std::forward<Args>(args)...);
     }
 
 private:

@@ -10,47 +10,52 @@
 #ifndef COMPOSE_COROUTINE_HPP
 #define COMPOSE_COROUTINE_HPP
 
-#include <compose/detail/assume.hpp>
-
 namespace compose
 {
 namespace detail
 {
-class coroutine_guard;
+class coroutine_ref;
 } // namespace detail
 
 class coroutine
 {
 public:
-    bool is_complete() const
-    {
-        return state_ < 0;
-    }
-
     bool is_continuation() const
     {
         return state_ > 0;
     }
 
-    friend detail::coroutine_guard;
+    friend detail::coroutine_ref;
 
 private:
     int state_ = 0;
 };
 
+#ifdef __GNUG__
+#define COMPOSE_ASSUME(expr)                                                   \
+    do                                                                         \
+    {                                                                          \
+        assert(expr);                                                          \
+        if (!(expr))                                                           \
+            __builtin_unreachable();                                           \
+    } while (0)
+#else
+#define COMPOSE_ASSUME(expr) assert(expr)
+#endif
+
 #define COMPOSE_REENTER(coroutine)                                             \
-    switch (detail::coroutine_guard _coro_guard{coroutine})                    \
-    case -1:                                                                   \
-        if (_coro_guard)                                                       \
+    switch (::compose::detail::coroutine_ref _coro_ref{coroutine})             \
+    default:                                                                   \
+        if (_coro_ref)                                                         \
         {                                                                      \
-            default:                                                           \
-                COMPOSE_ASSUME(false && "Corrupt coro state.");                \
+                                                                               \
+            COMPOSE_ASSUME(false && "Corrupt coro state.");                    \
         }                                                                      \
         else /* fall-through */                                                \
         case 0:
 
 #define COMPOSE_YIELD_IMPL(n)                                                  \
-    for (_coro_guard = (n);;)                                                  \
+    for (_coro_ref = (n);;)                                                    \
         /* fall-through */                                                     \
         if (false)                                                             \
         {                                                                      \
@@ -63,10 +68,6 @@ private:
             return
 
 #define COMPOSE_YIELD COMPOSE_YIELD_IMPL(__LINE__)
-
-#define COMPOSE_RETURN                                                         \
-    for (_coro_guard.release();;)                                              \
-    return
 
 } // namespace compose
 

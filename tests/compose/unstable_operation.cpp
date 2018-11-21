@@ -15,7 +15,7 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/core/lightweight_test.hpp>
 
-namespace compose
+namespace compose_tests
 {
 
 struct async_test_tag_dispatch
@@ -28,7 +28,7 @@ struct async_test_tag_dispatch
         };
 
         template<typename YieldToken>
-        upcall_guard operator()(YieldToken yield_token)
+        compose::upcall_guard operator()(YieldToken yield_token)
         {
             return (*this)(std::move(yield_token),
                            timer_tag_t{},
@@ -36,9 +36,9 @@ struct async_test_tag_dispatch
         }
 
         template<typename YieldToken>
-        upcall_guard operator()(YieldToken yield_token,
-                                timer_tag_t,
-                                boost::system::error_code ec)
+        compose::upcall_guard operator()(YieldToken yield_token,
+                                         timer_tag_t,
+                                         boost::system::error_code ec)
         {
             if (i_-- <= 0)
             {
@@ -47,7 +47,7 @@ struct async_test_tag_dispatch
 
             timer_.expires_from_now(duration_);
             return timer_.async_wait(
-              bind_token(std::move(yield_token), timer_tag_t{}));
+              compose::bind_token(std::move(yield_token), timer_tag_t{}));
         }
 
         TimerType& timer_;
@@ -66,45 +66,11 @@ struct async_test_tag_dispatch
         boost::asio::async_completion<CompletionToken,
                                       void(boost::system::error_code)>
           init{tok};
-        auto op = unstable_transform<tag_dispatch_op<TimerType>>(
-          timer.get_executor(), init, std::piecewise_construct, timer, d, i);
-        std::move(op).run();
 
-        return init.result.get();
-    }
-};
+        compose::unstable_transform<tag_dispatch_op<TimerType>>(
+          timer.get_executor(), init, std::piecewise_construct, timer, d, i)
+          .run();
 
-struct async_test_coroutine_termination
-{
-    struct coro_op
-    {
-        template<typename YieldToken>
-        upcall_guard operator()(YieldToken&& yield_token,
-                                boost::system::error_code ec = {})
-        {
-            COMPOSE_REENTER(coro_state_)
-            {
-            }
-
-            BOOST_TEST(coro_state_.is_complete());
-            return std::move(yield_token).upcall(ec);
-        }
-        compose::coroutine coro_state_{};
-    };
-
-    template<typename CompletionToken>
-    auto operator()(boost::asio::steady_timer& t,
-                    std::chrono::microseconds,
-                    int,
-                    CompletionToken&& tok)
-      -> BOOST_ASIO_INITFN_RESULT_TYPE(CompletionToken,
-                                       void(boost::system::error_code))
-    {
-        boost::asio::async_completion<CompletionToken,
-                                      void(boost::system::error_code)>
-          init{tok};
-        auto op = unstable_transform(t.get_executor(), init, coro_op{});
-        std::move(op).run();
         return init.result.get();
     }
 };
@@ -116,22 +82,22 @@ struct async_test_copyable_coro
     {
 
         template<typename YieldToken>
-        upcall_guard operator()(YieldToken&& yield_token,
-                                boost::system::error_code ec = {})
+        compose::upcall_guard operator()(YieldToken&& yield_token,
+                                         boost::system::error_code ec = {})
         {
             COMPOSE_REENTER(coro_state_)
             {
                 if (i_ == 0)
-                    COMPOSE_RETURN std::move(yield_token).upcall(ec);
+                    return std::move(yield_token).upcall(ec);
 
                 for (i_ = 0; i_ < 5; ++i_)
                 {
                     timer_.expires_from_now(duration_);
                     COMPOSE_YIELD timer_.async_wait(std::move(yield_token));
                     if (ec)
-                        COMPOSE_RETURN std::move(yield_token).direct_upcall(ec);
+                        return std::move(yield_token).direct_upcall(ec);
                 }
-                COMPOSE_RETURN std::move(yield_token).direct_upcall(ec);
+                return std::move(yield_token).direct_upcall(ec);
             }
         }
 
@@ -152,7 +118,7 @@ struct async_test_copyable_coro
         boost::asio::async_completion<CompletionToken,
                                       void(boost::system::error_code)>
           init{tok};
-        auto op = unstable_transform(
+        auto op = compose::unstable_transform(
           timer.get_executor(), init, coro_op<TimerType>{timer, d, i});
         std::move(op).run();
         return init.result.get();
@@ -191,9 +157,8 @@ test_composed_op()
 int
 main()
 {
-    compose::test_composed_op<compose::async_test_tag_dispatch>();
-    compose::test_composed_op<compose::async_test_copyable_coro>();
-    compose::test_composed_op<compose::async_test_coroutine_termination>();
+    compose_tests::test_composed_op<compose_tests::async_test_tag_dispatch>();
+    compose_tests::test_composed_op<compose_tests::async_test_copyable_coro>();
 
     return boost::report_errors();
 }

@@ -40,18 +40,14 @@ public:
     void run(Args&&... args) &&;
 
     /**
-     * Construct an object T and move the wrapped operation into place/
+     * Release ownership of an operation. The user is responsible on calling
+     * run() on the operation to start it.
      *
      * @remark Places this object in a valid, but unspecified state.
      *
-     * @tparam T the type to be constructed
-     *
-     * @param args Arguments forwarded to the constructor of T.
-     *
-     * @returns transformed_operation<T>
+     * @returns The move-constructed operation object
      */
-    template<typename T, typename... Args>
-    transformed_operation<T> wrap(Args&&... args) &&;
+    Op release() &&;
 
 private:
     Op op_;

@@ -11,9 +11,6 @@
 #define COMPOSE_BIND_TOKEN_HPP
 
 #include <compose/detail/bind_handler_front.hpp>
-#include <compose/detail/bound_handler.hpp>
-
-#include <utility>
 
 namespace compose
 {
@@ -33,9 +30,8 @@ class yield_token;
 template<typename ComposedOp, typename... Args>
 auto
 bind_token(yield_token<ComposedOp>&& token, Args&&... args)
-  -> detail::bound_handler<decltype(
-    compose::detail::bind_handler_front(std::move(token).release_operation(),
-                                        std::forward<Args>(args)...))>
+  -> detail::bound_front_op<detail::remove_cref_t<ComposedOp>,
+                            detail::remove_cref_t<Args>...>
 {
     return {compose::detail::bind_handler_front(
       std::move(token).release_operation(), std::forward<Args>(args)...)};

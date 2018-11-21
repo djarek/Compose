@@ -33,12 +33,12 @@ stable_transform(
     static_assert(boost::asio::is_executor<Executor>::value,
                   "Executor must be an Executor");
 
-    using upcall_t =
-      upcall_op<BOOST_ASIO_HANDLER_TYPE(CompletionToken, Signature), Executor>;
-    using op_t = detail::composed_op<OperationBody, upcall_t, true>;
-    return transformed_operation<op_t>{
-      upcall_t{std::move(init.completion_handler), ex},
-      std::forward<Args>(args)...};
+    return transformed_operation<
+      detail::composed_op<OperationBody,
+                          BOOST_ASIO_HANDLER_TYPE(CompletionToken, Signature),
+                          Executor,
+                          true>>{
+      std::move(init.completion_handler), ex, std::forward<Args>(args)...};
 }
 
 } // namespace detail
@@ -70,7 +70,7 @@ stable_transform(
   OperationBody&& cb)
 {
     return detail::stable_transform<Signature,
-                                    typename std::decay<OperationBody>::type>(
+                                    detail::remove_cref_t<OperationBody>>(
       ex, init, std::forward<OperationBody>(cb));
 }
 

@@ -7,15 +7,13 @@
 // Official repository: https://github.com/djarek/compose
 //
 
-#include <compose/stable_transform.hpp>
-
-#include <compose/bind_token.hpp>
 #include <compose/coroutine.hpp>
+#include <compose/stable_transform.hpp>
 
 #include <boost/asio/steady_timer.hpp>
 #include <boost/core/lightweight_test.hpp>
 
-namespace compose
+namespace compose_tests
 {
 
 template<typename TimerType>
@@ -25,13 +23,13 @@ struct noncopyable_op
     noncopyable_op(noncopyable_op&&) = delete;
 
     template<typename YieldToken>
-    upcall_guard operator()(YieldToken&& yield_token,
-                            boost::system::error_code ec = {})
+    compose::upcall_guard operator()(YieldToken&& yield_token,
+                                     boost::system::error_code ec = {})
     {
         COMPOSE_REENTER(coro_state_)
         {
             if (i_ == 0)
-                COMPOSE_RETURN std::move(yield_token).upcall(ec);
+                return std::move(yield_token).upcall(ec);
 
             for (i_ = 0; i_ < 5; ++i_)
             {
@@ -41,7 +39,7 @@ struct noncopyable_op
                     break;
             }
 
-            COMPOSE_RETURN std::move(yield_token).direct_upcall(ec);
+            return std::move(yield_token).direct_upcall(ec);
         }
     }
 
@@ -53,23 +51,23 @@ struct noncopyable_op
 
 template<typename TimerType, typename CompletionToken>
 auto
-async_run(TimerType& timer,
-          std::chrono::milliseconds d,
-          int i,
-          CompletionToken&& tok)
+async_op(TimerType& timer,
+         std::chrono::milliseconds d,
+         int i,
+         CompletionToken&& tok)
   -> BOOST_ASIO_INITFN_RESULT_TYPE(CompletionToken,
                                    void(boost::system::error_code))
 {
     boost::asio::async_completion<CompletionToken,
                                   void(boost::system::error_code)>
       init{tok};
-    auto op = stable_transform<noncopyable_op<TimerType>>(
+    auto op = compose::stable_transform<noncopyable_op<TimerType>>(
       timer.get_executor(), init, std::piecewise_construct, timer, d, i);
     std::move(op).run();
     return init.result.get();
 }
 
-} // namespace compose
+} // namespace compose_tests
 
 int
 main()
@@ -81,13 +79,14 @@ main()
         int invoked = 0;
         boost::system::error_code ec;
 
-        compose::async_run(timer,
-                           std::chrono::milliseconds{1},
-                           i,
-                           [&invoked, &ec](boost::system::error_code ec_arg) {
-                               ec = ec_arg;
-                               ++invoked;
-                           });
+        compose_tests::async_op(
+          timer,
+          std::chrono::milliseconds{1},
+          i,
+          [&invoked, &ec](boost::system::error_code ec_arg) {
+              ec = ec_arg;
+              ++invoked;
+          });
 
         ctx.run();
 

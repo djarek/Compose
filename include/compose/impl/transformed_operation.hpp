@@ -32,12 +32,10 @@ transformed_operation<Op>::run(Args&&... args) &&
 }
 
 template<typename Op>
-template<typename T, typename... Args>
-transformed_operation<T>
-transformed_operation<Op>::wrap(Args&&... args) &&
+Op
+transformed_operation<Op>::release() &&
 {
-    return transformed_operation<T>{std::move(op_),
-                                    std::forward<Args>(args)...};
+    return std::move(op_);
 }
 
 } // namespace compose

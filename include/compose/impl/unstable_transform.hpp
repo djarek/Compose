@@ -33,12 +33,12 @@ unstable_transform(
     static_assert(boost::asio::is_executor<Executor>::value,
                   "Executor must be an Executor");
 
-    using upcall_t =
-      upcall_op<BOOST_ASIO_HANDLER_TYPE(CompletionToken, Signature), Executor>;
-    using op_t = composed_op<OperationBody, upcall_t, false>;
-    return transformed_operation<op_t>{
-      upcall_t{std::move(init.completion_handler), ex},
-      std::forward<Args>(args)...};
+    return transformed_operation<
+      composed_op<OperationBody,
+                  BOOST_ASIO_HANDLER_TYPE(CompletionToken, Signature),
+                  Executor,
+                  false>>{
+      std::move(init.completion_handler), ex, std::forward<Args>(args)...};
 }
 
 } // namespace detail
@@ -69,7 +69,7 @@ unstable_transform(
   boost::asio::async_completion<CompletionToken, Signature>& init,
   OperationBody&& cb)
 {
-    return detail::unstable_transform<typename std::decay<OperationBody>::type>(
+    return detail::unstable_transform<detail::remove_cref_t<OperationBody>>(
       ex, init, std::forward<OperationBody>(cb));
 }
 
