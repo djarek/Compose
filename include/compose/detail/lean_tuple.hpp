@@ -11,19 +11,13 @@
 #define COMPOSE_DETAIL_LEAN_TUPLE
 
 #include <boost/mp11/integer_sequence.hpp>
-
-#if __cplusplus > 201703L
-#define COMPOSE_USE_NO_UNIQUE_ADDRESS
-#else
 #include <type_traits>
-#endif
+#include <utility>
 
 namespace compose
 {
 namespace detail
 {
-
-#ifndef COMPOSE_USE_NO_UNIQUE_ADDRESS
 
 template<typename T>
 struct use_ebo
@@ -41,7 +35,7 @@ struct tuple_element<I, T, true> : T
 #if __cplusplus < 201703L
     template<typename U>
     explicit tuple_element(U&& u)
-      : T(u)
+      : T(std::forward<U>(u))
     {
     }
 #endif
@@ -73,26 +67,6 @@ struct tuple_element<I, T, false>
     T t_;
 };
 
-#else // COMPOSE_USE_NO_UNIQUE_ADDRESS
-
-template<std::size_t I, typename T>
-struct tuple_element
-{
-    static T& get_helper(tuple_element& te)
-    {
-        return te.t_;
-    }
-
-    static T const& get_helper(tuple_element const& te)
-    {
-        return te.t_;
-    }
-
-    [[no_unique_address]] T t_;
-};
-
-#endif // COMPOSE_USE_NO_UNIQUE_ADDRESS
-
 template<typename... Ts>
 struct tuple_impl;
 
@@ -105,7 +79,7 @@ struct tuple_impl<boost::mp11::index_sequence<Is...>, Ts...>
 
     template<typename... Us>
     explicit tuple_impl(Us&&... us)
-      : tuple_element<Is, Ts>{static_cast<Us&&>(us)}...
+      : tuple_element<Is, Ts>{std::forward<Us>(us)}...
     {
     }
 #endif
@@ -118,7 +92,7 @@ struct lean_tuple : tuple_impl<boost::mp11::index_sequence_for<Ts...>, Ts...>
     template<typename... Us>
     explicit lean_tuple(Us&&... us)
       : tuple_impl<boost::mp11::index_sequence_for<Ts...>, Ts...>{
-          static_cast<Us&&>(us)...}
+          std::forward<Us>(us)...}
     {
     }
 #endif
@@ -142,7 +116,7 @@ template<std::size_t I, typename T>
 T&&
 get(tuple_element<I, T>&& te)
 {
-    return static_cast<T&&>(tuple_element<I, T>::get_helper(te));
+    return std::move(tuple_element<I, T>::get_helper(te));
 }
 
 } // namespace detail
