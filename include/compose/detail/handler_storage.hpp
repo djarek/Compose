@@ -48,6 +48,53 @@ struct lean_ptr
     F f_;
 };
 
+template<typename T>
+struct uniform_init_wrapper
+{
+    template<typename... Args>
+    explicit uniform_init_wrapper(Args&&... args)
+      : t_{std::forward<Args>(args)...}
+    {
+    }
+
+    T t_;
+};
+
+template<typename Handler, typename Allocator>
+struct deleter
+{
+    using value_type = typename Allocator::value_type;
+    void operator()(value_type* p) const
+    {
+        std::allocator_traits<Allocator> traits;
+        traits.destroy(alloc_, p);
+        traits.deallocate(alloc_, p, 1);
+        handler_.~Handler();
+    }
+
+    Allocator& alloc_;
+    Handler& handler_;
+};
+
+template<typename Allocator>
+struct conditional_deleter
+{
+    using value_type = typename Allocator::value_type;
+    void operator()(value_type* p) const
+    {
+        std::allocator_traits<Allocator> traits;
+        if (constructed_)
+        {
+            traits.destroy(alloc_, p);
+        }
+
+        traits.deallocate(alloc_, p, 1);
+    }
+
+    Allocator& alloc_;
+    bool& constructed_;
+};
+
 template<typename Handler, typename T, bool stable>
 struct handler_storage;
 
@@ -91,29 +138,25 @@ struct handler_storage<Handler, T, false>
 };
 
 template<typename Handler, typename T>
-struct handler_storage<Handler, T, true>
+class handler_storage<Handler, T, true>
 {
+    using wrapper = uniform_init_wrapper<T>;
+    using allocator_type = typename std::allocator_traits<
+      boost::asio::associated_allocator_t<Handler, default_allocator>>::
+      template rebind_alloc<wrapper>;
+
+public:
     template<typename H, typename... Args>
     explicit handler_storage(H&& h, Args&&... args)
     {
-        typename std::allocator_traits<
-          boost::asio::associated_allocator_t<Handler, default_allocator>>::
-          template rebind_alloc<wrapper>
-            alloc{
-              boost::asio::get_associated_allocator(h, default_allocator{})};
-        std::allocator_traits<decltype(alloc)> traits;
+        allocator_type alloc{
+          boost::asio::get_associated_allocator(h, default_allocator{})};
+        std::allocator_traits<allocator_type> traits;
         bool constructed = false;
-        auto const deleter = [&](wrapper* w) {
-            if (constructed)
-            {
-                traits.destroy(alloc, w);
-            }
 
-            traits.deallocate(alloc, w, 1);
-        };
-
-        detail::lean_ptr<wrapper, decltype(deleter)> p{
-          traits.allocate(alloc, 1), deleter};
+        detail::lean_ptr<wrapper, conditional_deleter<allocator_type>> p{
+          traits.allocate(alloc, 1),
+          conditional_deleter<allocator_type>{alloc, constructed}};
         traits.construct(alloc, p.t_, std::forward<Args>(args)...);
         constructed = true;
         ::new (static_cast<void*>(&handler_)) Handler{std::forward<H>(h)};
@@ -137,15 +180,9 @@ struct handler_storage<Handler, T, true>
     {
         if (has_value())
         {
-            typename std::allocator_traits<
-              boost::asio::associated_allocator_t<Handler, default_allocator>>::
-              template rebind_alloc<wrapper>
-                alloc{boost::asio::get_associated_allocator(
-                  handler_, default_allocator{})};
-            std::allocator_traits<decltype(alloc)> traits;
-            traits.destroy(alloc, wrapper_);
-            traits.deallocate(alloc, wrapper_, 1);
-            handler_.~Handler();
+            allocator_type alloc{boost::asio::get_associated_allocator(
+              handler_, default_allocator{})};
+            deleter<Handler, allocator_type>{alloc, handler_}(wrapper_);
         }
     }
 
@@ -177,37 +214,17 @@ struct handler_storage<Handler, T, true>
     template<typename... Args>
     auto release_bind(Args&&... args)
     {
-        typename std::allocator_traits<
-          boost::asio::associated_allocator_t<Handler, default_allocator>>::
-          template rebind_alloc<wrapper>
-            alloc{boost::asio::get_associated_allocator(handler_,
-                                                        default_allocator{})};
+        allocator_type alloc{
+          boost::asio::get_associated_allocator(handler_, default_allocator{})};
 
-        auto const deleter = [&](wrapper* w) {
-            wrapper_ = nullptr;
-            std::allocator_traits<decltype(alloc)> traits;
-            traits.destroy(alloc, w);
-            traits.deallocate(alloc, w, 1);
-            handler_.~Handler();
-        };
-
-        detail::lean_ptr<wrapper, decltype(deleter)> p{wrapper_, deleter};
+        auto const del = deleter<Handler, allocator_type>{alloc, handler_};
+        detail::lean_ptr<wrapper, decltype(del)> p{wrapper_, del};
+        wrapper_ = nullptr;
         return detail::bind_handler_front(std::move(handler_),
                                           std::forward<Args>(args)...);
     }
 
 private:
-    struct wrapper
-    {
-        template<typename... Args>
-        wrapper(Args&&... args)
-          : t_{std::forward<Args>(args)...}
-        {
-        }
-
-        T t_;
-    };
-
     union {
         Handler handler_;
     };
