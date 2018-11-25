@@ -61,18 +61,16 @@ unstable_transform(
  * invoking Undefined Behavior. Use a stable version of this function if the
  * OperationBody must retain state for the duration of the operation.
  *
- * @tparam OperationBody the type that will transformed into a
- * ComposedOperation. The OperationBody is required to satisfy the constraints
- * of MoveConstructible and no guarantees are provided for the address stability
- * of that object.
- *
  * @param ex The I/O executor to be used by the ComposedOperation (associated
  * with the used I/O object).
  *
  * @param init Reference to an asynchronous operation initiation helper. Used to
  * deduce the CompletionHandler and Signature types.
  *
- * @param args Arguments passed to the constructor of OperationBody.
+ * @param ob The operation that will transformed into a
+ * ComposedOperation. The OperationBody is required to satisfy the constraints
+ * of MoveConstructible and no guarantees are provided for the address stability
+ * of that object
  *
  * @returns transformed_operation<DEDUCED>
  */
@@ -84,7 +82,7 @@ auto
 unstable_transform(
   Executor const& ex,
   boost::asio::async_completion<CompletionToken, Signature>& init,
-  OperationBody&& cb);
+  OperationBody&& ob);
 
 template<typename OperationBody, typename Executor, typename CompletionHandler>
 using unstable_yield_token_t = yield_token<

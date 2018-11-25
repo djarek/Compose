@@ -72,7 +72,10 @@ stable_transform(
  * @param init Reference to an asynchronous operation initiation helper. Used to
  * deduce the CompletionHandler and Signature types.
  *
- * @param args Arguments forwarded to the constructor of OperationBody.
+ * @param ob The operation that will transformed into a
+ * ComposedOperation. The OperationBody is required to satisfy the constraints
+ * of MoveConstructible and no guarantees are provided for the address stability
+ * of that object
  *
  * @returns transformed_operation<DEDUCED>
  */
@@ -84,7 +87,7 @@ auto
 stable_transform(
   Executor const& ex,
   boost::asio::async_completion<CompletionToken, Signature>& init,
-  OperationBody&& cb);
+  OperationBody&& ob);
 
 template<typename OperationBody, typename Executor, typename CompletionHandler>
 using stable_yield_token_t = yield_token<

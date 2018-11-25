@@ -27,8 +27,8 @@ yield_token<ComposedOp>::yield_token(ComposedOp& op, bool is_continuation)
 }
 
 template<typename ComposedOp>
-auto
-yield_token<ComposedOp>::release_operation() && -> ComposedOp
+ComposedOp
+yield_token<ComposedOp>::release_operation() &&
 {
     return std::move(op_);
 }

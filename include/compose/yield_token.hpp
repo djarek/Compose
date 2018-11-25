@@ -40,7 +40,7 @@ public:
      *
      * @remark The yield_token is put in a moved-from state.
      */
-    auto release_operation() && -> ComposedOp;
+    ComposedOp release_operation() &&;
 
     /**
      * Performs a post-upcall to the CompletionHandler associated with the
@@ -114,7 +114,7 @@ class async_result<compose::yield_token<ComposedOp>, Signature>
 {
 public:
     using return_type = compose::upcall_guard;
-    using completion_handler_type = typename std::decay<ComposedOp>::type;
+    using completion_handler_type = ComposedOp;
 
     explicit async_result(completion_handler_type&)
     {

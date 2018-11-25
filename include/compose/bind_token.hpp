@@ -30,8 +30,7 @@ class yield_token;
 template<typename ComposedOp, typename... Args>
 auto
 bind_token(yield_token<ComposedOp>&& token, Args&&... args)
-  -> detail::bound_front_op<detail::remove_cref_t<ComposedOp>,
-                            detail::remove_cref_t<Args>...>
+  -> detail::bound_front_op<ComposedOp, detail::remove_cref_t<Args>...>
 {
     return {compose::detail::bind_handler_front(
       std::move(token).release_operation(), std::forward<Args>(args)...)};

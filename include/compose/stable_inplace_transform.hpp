@@ -30,6 +30,9 @@ struct converter
     }
 };
 
+template<typename T>
+converter(T t)->converter<T>;
+
 template<typename Executor,
          typename CompletionToken,
          typename Signature,
@@ -43,9 +46,6 @@ stable_inplace_transform(
     return detail::stable_transform<typename converter<F>::result_type>(
       ex, init, conv);
 }
-
-template<typename T>
-converter(T&& t)->converter<detail::remove_cref_t<T>>;
 
 #define COMPOSE_INPLACE_FWD(...)                                               \
     converter                                                                  \

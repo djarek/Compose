@@ -30,9 +30,6 @@ stable_transform(
   boost::asio::async_completion<CompletionToken, Signature>& init,
   Args&&... args)
 {
-    static_assert(boost::asio::is_executor<Executor>::value,
-                  "Executor must be an Executor");
-
     return transformed_operation<
       detail::composed_op<OperationBody,
                           BOOST_ASIO_HANDLER_TYPE(CompletionToken, Signature),
@@ -67,11 +64,11 @@ auto
 stable_transform(
   Executor const& ex,
   boost::asio::async_completion<CompletionToken, Signature>& init,
-  OperationBody&& cb)
+  OperationBody&& ob)
 {
     return detail::stable_transform<Signature,
                                     detail::remove_cref_t<OperationBody>>(
-      ex, init, std::forward<OperationBody>(cb));
+      ex, init, std::forward<OperationBody>(ob));
 }
 
 } // namespace compose
