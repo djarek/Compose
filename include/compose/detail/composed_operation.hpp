@@ -64,8 +64,9 @@ using work_guard_t = typename std::conditional<
     boost::asio::associated_executor_t<CompletionHandler, IoExecutor>>>::type;
 
 template<typename CompletionHandler, typename IoExecutor>
-struct upcall_op
+class upcall_op
 {
+public:
     using executor_type =
       boost::asio::associated_executor_t<CompletionHandler, IoExecutor>;
     using allocator_type =
