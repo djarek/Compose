@@ -10,9 +10,9 @@
 #ifndef COMPOSE_DETAIL_HANDLER_STORAGE_HPP
 #define COMPOSE_DETAIL_HANDLER_STORAGE_HPP
 
-#include <compose/detail/bind_handler_front.hpp>
-
 #include <boost/asio/associated_allocator.hpp>
+#include <compose/detail/bind_handler_front.hpp>
+#include <compose/detail/lean_ptr.hpp>
 
 #ifndef COMPOSE_NO_RECYCLING_ALLOCATOR
 #include <boost/asio/detail/recycling_allocator.hpp>
@@ -29,24 +29,6 @@ using default_allocator = boost::asio::detail::recycling_allocator<void>;
 #else
 using default_allocator = std::allocator<void>;
 #endif
-
-template<typename T, typename F>
-struct lean_ptr
-{
-    lean_ptr(lean_ptr&&) = delete;
-    lean_ptr(lean_ptr const&) = delete;
-    lean_ptr& operator=(lean_ptr&&) = delete;
-    lean_ptr& operator=(lean_ptr const&) = delete;
-
-    ~lean_ptr()
-    {
-        if (t_)
-            f_(t_);
-    }
-
-    T* t_;
-    F f_;
-};
 
 template<typename T>
 struct uniform_init_wrapper
