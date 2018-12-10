@@ -67,7 +67,7 @@ stable_transform(
   OperationBody&& ob)
 {
     return detail::stable_transform<Signature,
-                                    detail::remove_cref_t<OperationBody>>(
+                                    typename std::decay<OperationBody>::type>(
       ex, init, std::forward<OperationBody>(ob));
 }
 

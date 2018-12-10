@@ -11,7 +11,7 @@
 #define COMPOSE_DETAIL_HANDLER_STORAGE_HPP
 
 #include <boost/asio/associated_allocator.hpp>
-#include <compose/detail/bind_handler_front.hpp>
+#include <compose/detail/bind_front_handler.hpp>
 #include <compose/detail/lean_ptr.hpp>
 
 #ifndef COMPOSE_NO_RECYCLING_ALLOCATOR

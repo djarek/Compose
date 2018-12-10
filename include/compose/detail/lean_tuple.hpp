@@ -19,21 +19,21 @@ namespace compose
 namespace detail
 {
 
-template<typename T>
+template<class T>
 struct use_ebo
 {
     static auto constexpr value =
       !std::is_final<T>::value && std::is_empty<T>::value;
 };
 
-template<std::size_t I, typename T, bool = use_ebo<T>::value>
+template<std::size_t I, class T, bool = use_ebo<T>::value>
 struct tuple_element;
 
-template<std::size_t I, typename T>
+template<std::size_t I, class T>
 struct tuple_element<I, T, true> : T
 {
 #if __cplusplus < 201703L
-    template<typename U>
+    template<class U>
     explicit tuple_element(U&& u)
       : T(std::forward<U>(u))
     {
@@ -51,7 +51,7 @@ struct tuple_element<I, T, true> : T
     }
 };
 
-template<std::size_t I, typename T>
+template<std::size_t I, class T>
 struct tuple_element<I, T, false>
 {
     static T& get_helper(tuple_element& te)
@@ -67,17 +67,17 @@ struct tuple_element<I, T, false>
     T t_;
 };
 
-template<typename... Ts>
+template<class... Ts>
 struct tuple_impl;
 
-template<typename... Ts, std::size_t... Is>
+template<class... Ts, std::size_t... Is>
 struct tuple_impl<boost::mp11::index_sequence<Is...>, Ts...>
   : tuple_element<Is, Ts>...
 {
 #if __cplusplus < 201703L
     tuple_impl() = default;
 
-    template<typename... Us>
+    template<class... Us>
     explicit tuple_impl(Us&&... us)
       : tuple_element<Is, Ts>{std::forward<Us>(us)}...
     {
@@ -85,12 +85,12 @@ struct tuple_impl<boost::mp11::index_sequence<Is...>, Ts...>
 #endif
 };
 
-template<typename... Ts>
+template<class... Ts>
 struct lean_tuple : tuple_impl<boost::mp11::index_sequence_for<Ts...>, Ts...>
 {
 #if __cplusplus < 201703L
-    template<typename... Us>
-    explicit lean_tuple(Us&&... us)
+    template<class... Us>
+    lean_tuple(Us&&... us)
       : tuple_impl<boost::mp11::index_sequence_for<Ts...>, Ts...>{
           std::forward<Us>(us)...}
     {
@@ -98,21 +98,21 @@ struct lean_tuple : tuple_impl<boost::mp11::index_sequence_for<Ts...>, Ts...>
 #endif
 };
 
-template<std::size_t I, typename T>
+template<std::size_t I, class T>
 T&
 get(tuple_element<I, T>& te)
 {
     return tuple_element<I, T>::get_helper(te);
 }
 
-template<std::size_t I, typename T>
+template<std::size_t I, class T>
 T const&
 get(tuple_element<I, T> const& te)
 {
     return tuple_element<I, T>::get_helper(te);
 }
 
-template<std::size_t I, typename T>
+template<std::size_t I, class T>
 T&&
 get(tuple_element<I, T>&& te)
 {

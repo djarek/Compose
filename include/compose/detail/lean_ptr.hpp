@@ -15,7 +15,7 @@ namespace compose
 namespace detail
 {
 
-template<typename T, typename F>
+template<class T, class F>
 struct lean_ptr
 {
     lean_ptr(lean_ptr&&) = delete;

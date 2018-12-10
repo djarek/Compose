@@ -66,7 +66,7 @@ unstable_transform(
   boost::asio::async_completion<CompletionToken, Signature>& init,
   OperationBody&& ob)
 {
-    return detail::unstable_transform<detail::remove_cref_t<OperationBody>>(
+    return detail::unstable_transform<typename std::decay<OperationBody>::type>(
       ex, init, std::forward<OperationBody>(ob));
 }
 

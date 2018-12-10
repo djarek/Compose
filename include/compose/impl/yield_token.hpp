@@ -13,6 +13,8 @@
 #include <compose/detail/running_in_this_thread.hpp>
 #include <compose/yield_token.hpp>
 
+#include <boost/asio/associated_executor.hpp>
+
 #include <cassert>
 #include <utility>
 
@@ -48,7 +50,8 @@ yield_token<ComposedOp>::direct_upcall(Args&&... args) &&
 {
     assert(is_continuation_ && "Direct upcall can only be used in a "
                                "continuation. Use post_upcall instead.");
-    assert(detail::running_in_this_thread(op_.get_executor(), nullptr) &&
+    assert(detail::running_in_this_thread(
+             boost::asio::get_associated_executor(op_), nullptr) &&
            "Direct upcall must not be performed outside of the "
            "CompletionHandler's Executor context.");
     return op_.direct_upcall(std::forward<Args>(args)...);

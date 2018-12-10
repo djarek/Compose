@@ -10,7 +10,7 @@
 #ifndef COMPOSE_BIND_TOKEN_HPP
 #define COMPOSE_BIND_TOKEN_HPP
 
-#include <compose/detail/bind_handler_front.hpp>
+#include <compose/detail/bind_front_handler.hpp>
 
 namespace compose
 {
@@ -32,7 +32,7 @@ auto
 bind_token(yield_token<ComposedOp>&& token, Args&&... args)
   -> detail::bound_front_op<ComposedOp, detail::remove_cref_t<Args>...>
 {
-    return {compose::detail::bind_handler_front(
+    return {compose::detail::bind_front_handler(
       std::move(token).release_operation(), std::forward<Args>(args)...)};
 }
 
