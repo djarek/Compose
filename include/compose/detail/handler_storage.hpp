@@ -42,7 +42,7 @@ struct uniform_init_wrapper
     T t_;
 };
 
-template<typename Handler, typename Allocator>
+template<typename Allocator>
 struct deleter
 {
     using value_type = typename Allocator::value_type;
@@ -51,30 +51,21 @@ struct deleter
         std::allocator_traits<Allocator> traits;
         traits.destroy(alloc_, p);
         traits.deallocate(alloc_, p, 1);
-        handler_.~Handler();
     }
 
     Allocator& alloc_;
-    Handler& handler_;
 };
 
 template<typename Allocator>
-struct conditional_deleter
+struct deallocator
 {
     using value_type = typename Allocator::value_type;
     void operator()(value_type* p) const
     {
-        std::allocator_traits<Allocator> traits;
-        if (constructed_)
-        {
-            traits.destroy(alloc_, p);
-        }
-
-        traits.deallocate(alloc_, p, 1);
+        std::allocator_traits<Allocator>::deallocate(alloc_, p, 1);
     }
 
     Allocator& alloc_;
-    bool& constructed_;
 };
 
 template<typename Handler, typename T, bool stable>
@@ -113,9 +104,9 @@ struct handler_storage<Handler, T, false>
 
     template<typename... Args>
     auto release_bind(Args&&... args)
+      -> bound_front_op<Handler, typename std::decay<Args>::type...>
     {
-        return detail::bind_handler_front(std::move(handler_),
-                                          std::forward<Args>(args)...);
+        return {std::move(handler_), {std::forward<Args>(args)...}};
     }
 };
 
@@ -130,28 +121,24 @@ class handler_storage<Handler, T, true>
 public:
     template<typename H, typename... Args>
     explicit handler_storage(H&& h, Args&&... args)
+      : handler_{std::forward<H>(h)}
     {
         allocator_type alloc{
           boost::asio::get_associated_allocator(h, default_allocator{})};
         std::allocator_traits<allocator_type> traits;
-        bool constructed = false;
 
-        detail::lean_ptr<wrapper, conditional_deleter<allocator_type>> p{
-          traits.allocate(alloc, 1),
-          conditional_deleter<allocator_type>{alloc, constructed}};
+        detail::lean_ptr<wrapper, deallocator<allocator_type>> p{
+          traits.allocate(alloc, 1), deallocator<allocator_type>{alloc}};
         traits.construct(alloc, p.t_, std::forward<Args>(args)...);
-        constructed = true;
-        ::new (static_cast<void*>(&handler_)) Handler{std::forward<H>(h)};
         wrapper_ = p.t_;
         p.t_ = nullptr;
     }
 
     handler_storage(handler_storage&& other) noexcept
+      : handler_{std::move(other.handler_)}
     {
         wrapper_ = other.wrapper_;
         other.wrapper_ = nullptr;
-        ::new (static_cast<void*>(&handler_))
-          Handler{std::move(other.handler_)};
     }
 
     handler_storage(handler_storage const&) = delete;
@@ -164,7 +151,7 @@ public:
         {
             allocator_type alloc{boost::asio::get_associated_allocator(
               handler_, default_allocator{})};
-            deleter<Handler, allocator_type>{alloc, handler_}(wrapper_);
+            deleter<allocator_type>{alloc}(wrapper_);
         }
     }
 
@@ -195,22 +182,19 @@ public:
 
     template<typename... Args>
     auto release_bind(Args&&... args)
+      -> bound_front_op<Handler, typename std::decay<Args>::type...>
     {
         allocator_type alloc{
           boost::asio::get_associated_allocator(handler_, default_allocator{})};
 
-        auto const del = deleter<Handler, allocator_type>{alloc, handler_};
+        auto const del = deleter<allocator_type>{alloc};
         detail::lean_ptr<wrapper, decltype(del)> p{wrapper_, del};
         wrapper_ = nullptr;
-        return detail::bind_handler_front(std::move(handler_),
-                                          std::forward<Args>(args)...);
+        return {std::move(handler_), {std::forward<Args>(args)...}};
     }
 
 private:
-    union {
-        Handler handler_;
-    };
-
+    Handler handler_;
     wrapper* wrapper_;
 };
 
