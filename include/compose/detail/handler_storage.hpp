@@ -10,63 +10,14 @@
 #ifndef COMPOSE_DETAIL_HANDLER_STORAGE_HPP
 #define COMPOSE_DETAIL_HANDLER_STORAGE_HPP
 
-#include <boost/asio/associated_allocator.hpp>
+#include <compose/detail/allocator_utils.hpp>
 #include <compose/detail/bind_front_handler.hpp>
 #include <compose/detail/lean_ptr.hpp>
-
-#ifndef COMPOSE_NO_RECYCLING_ALLOCATOR
-#include <boost/asio/detail/recycling_allocator.hpp>
-#endif // COMPOSE_NO_RECYCLING_ALLOCATOR
-#include <memory>
 
 namespace compose
 {
 namespace detail
 {
-
-#ifndef COMPOSE_NO_RECYCLING_ALLOCATOR
-using default_allocator = boost::asio::detail::recycling_allocator<void>;
-#else
-using default_allocator = std::allocator<void>;
-#endif
-
-template<typename T>
-struct uniform_init_wrapper
-{
-    template<typename... Args>
-    explicit uniform_init_wrapper(Args&&... args)
-      : t_{std::forward<Args>(args)...}
-    {
-    }
-
-    T t_;
-};
-
-template<typename Allocator>
-struct deleter
-{
-    using value_type = typename Allocator::value_type;
-    void operator()(value_type* p) const
-    {
-        std::allocator_traits<Allocator> traits;
-        traits.destroy(alloc_, p);
-        traits.deallocate(alloc_, p, 1);
-    }
-
-    Allocator& alloc_;
-};
-
-template<typename Allocator>
-struct deallocator
-{
-    using value_type = typename Allocator::value_type;
-    void operator()(value_type* p) const
-    {
-        std::allocator_traits<Allocator>::deallocate(alloc_, p, 1);
-    }
-
-    Allocator& alloc_;
-};
 
 template<typename Handler, typename T, bool stable>
 struct handler_storage;
@@ -114,9 +65,7 @@ template<typename Handler, typename T>
 class handler_storage<Handler, T, true>
 {
     using wrapper = uniform_init_wrapper<T>;
-    using allocator_type = typename std::allocator_traits<
-      boost::asio::associated_allocator_t<Handler, default_allocator>>::
-      template rebind_alloc<wrapper>;
+    using allocator_type = rebound_associated_alloc_t<Handler, wrapper>;
 
 public:
     template<typename H, typename... Args>
