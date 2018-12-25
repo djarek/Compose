@@ -21,43 +21,6 @@ namespace compose
 namespace detail
 {
 
-/**
- * A work_guard-like class that explicitly does not call on_work*() functions of
- * the Executor. Only to be used if a CompletionHandler is associated with the
- * system executor (in which case a regular work guard performs redundant work
- * management and has a useless flag in it)
- */
-template<class Executor>
-class null_work_guard
-{
-public:
-    using executor_type = Executor;
-
-    explicit constexpr null_work_guard(Executor const& ex) noexcept
-      : executor_{ex}
-    {
-    }
-
-    executor_type get_executor() const noexcept
-    {
-        return executor_;
-    }
-
-private:
-    Executor executor_;
-};
-
-template<class CompletionHandler, class IoExecutor>
-using work_guard_t = typename std::conditional<
-  std::is_same<
-    boost::asio::associated_executor_t<CompletionHandler, IoExecutor>,
-    IoExecutor>::value &&
-    std::is_same<boost::asio::associated_executor_t<CompletionHandler>,
-                 boost::asio::system_executor>::value,
-  null_work_guard<IoExecutor>,
-  boost::asio::executor_work_guard<
-    boost::asio::associated_executor_t<CompletionHandler, IoExecutor>>>::type;
-
 template<class Handler, class IoExecutor>
 struct upcall_op
 {
@@ -70,7 +33,7 @@ struct upcall_op
     }
 
     Handler upcall_;
-    work_guard_t<Handler, IoExecutor> guard_;
+    boost::asio::executor_work_guard<IoExecutor> guard_;
 };
 
 template<class OperationBody, class Handler, class IoExecutor, bool stable>
@@ -79,10 +42,10 @@ class composed_op
 public:
     template<class H, class... BodyArgs>
     explicit composed_op(H&& h, IoExecutor const& ex, BodyArgs&&... args)
-      : op_storage_{
-          upcall_op<Handler, IoExecutor>{std::move(h),
-                                         work_guard_t<Handler, IoExecutor>{ex}},
-          std::forward<BodyArgs>(args)...}
+      : op_storage_{upcall_op<Handler, IoExecutor>{
+                      std::move(h),
+                      boost::asio::make_work_guard<IoExecutor>(ex)},
+                    std::forward<BodyArgs>(args)...}
     {
     }
 
