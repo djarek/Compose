@@ -21,7 +21,7 @@ namespace compose
 /**
  * A proxy type that represents the currently running composed operation.
  *
- * All rvalue-ref qualified member function are potentially destructive,
+ * Some member functions are potentially destructive,
  * i.e. references to the associated OperationBody or its data members may
  * become invalid and the token is placed in a valid, but unspecified state.
  */
@@ -40,7 +40,7 @@ public:
      *
      * @remark The yield_token is put in a moved-from state.
      */
-    ComposedOp release_operation() &&;
+    ComposedOp release_operation() const;
 
     /**
      * Performs a post-upcall to the CompletionHandler associated with the
@@ -55,7 +55,7 @@ public:
      * data members.
      */
     template<typename... Args>
-    upcall_guard post_upcall(Args&&... args) &&;
+    upcall_guard post_upcall(Args&&... args);
 
     /**
      * Performs a direct-upcall to the CompletionHandler associated with the
@@ -72,7 +72,7 @@ public:
      * data members.
      */
     template<typename... Args>
-    upcall_guard direct_upcall(Args&&... args) &&;
+    upcall_guard direct_upcall(Args&&... args);
 
     /**
      * Performs an upcall to the CompletionHandler associated with the
@@ -86,7 +86,7 @@ public:
      * data members.
      */
     template<typename... Args>
-    upcall_guard upcall(Args&&... args) &&;
+    upcall_guard upcall(Args&&... args);
 
     /**
      * Indicates whether the currently running composed operation is a

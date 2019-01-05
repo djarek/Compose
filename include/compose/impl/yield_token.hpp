@@ -30,7 +30,7 @@ yield_token<ComposedOp>::yield_token(ComposedOp& op, bool is_continuation)
 
 template<typename ComposedOp>
 ComposedOp
-yield_token<ComposedOp>::release_operation() &&
+yield_token<ComposedOp>::release_operation() const
 {
     return std::move(op_);
 }
@@ -38,15 +38,16 @@ yield_token<ComposedOp>::release_operation() &&
 template<typename ComposedOp>
 template<typename... Args>
 upcall_guard
-yield_token<ComposedOp>::post_upcall(Args&&... args) &&
+yield_token<ComposedOp>::post_upcall(Args&&... args)
 {
-    return op_.post_upcall(std::forward<Args>(args)...);
+    op_.post_upcall(std::forward<Args>(args)...);
+    return {};
 }
 
 template<typename ComposedOp>
 template<typename... Args>
 upcall_guard
-yield_token<ComposedOp>::direct_upcall(Args&&... args) &&
+yield_token<ComposedOp>::direct_upcall(Args&&... args)
 {
     assert(is_continuation_ && "Direct upcall can only be used in a "
                                "continuation. Use post_upcall instead.");
@@ -54,18 +55,19 @@ yield_token<ComposedOp>::direct_upcall(Args&&... args) &&
              boost::asio::get_associated_executor(op_), nullptr) &&
            "Direct upcall must not be performed outside of the "
            "CompletionHandler's Executor context.");
-    return op_.direct_upcall(std::forward<Args>(args)...);
+    op_.direct_upcall(std::forward<Args>(args)...);
+    return {};
 }
 
 template<typename ComposedOp>
 template<typename... Args>
 upcall_guard
-yield_token<ComposedOp>::upcall(Args&&... args) &&
+yield_token<ComposedOp>::upcall(Args&&... args)
 {
     if (is_continuation_)
-        return std::move(*this).direct_upcall(std::forward<Args>(args)...);
+        return direct_upcall(std::forward<Args>(args)...);
     else
-        return std::move(*this).post_upcall(std::forward<Args>(args)...);
+        return post_upcall(std::forward<Args>(args)...);
 }
 
 } // namespace compose

@@ -49,8 +49,8 @@ public:
     {
     }
 
-    explicit composed_op(yield_token<composed_op>&& token)
-      : composed_op{std::move(token).release_operation()}
+    explicit composed_op(yield_token<composed_op> const& token)
+      : composed_op{token.release_operation()}
     {
     }
 
@@ -69,24 +69,23 @@ public:
     }
 
     template<class... Args>
-    upcall_guard post_upcall(Args&&... args)
+    void post_upcall(Args&&... args)
     {
         assert(op_storage_.has_value() &&
                "post_upcall must not be called on an invalid operation.");
-        auto const ex = boost::asio::get_associated_executor(*this);
+        auto const ex = boost::asio::get_associated_executor(
+          *this, op_storage_.handler().guard_.get_executor());
         auto const alloc = boost::asio::get_associated_allocator(*this);
         ex.post(op_storage_.release_bind(std::forward<Args>(args)...), alloc);
-        return {};
     }
 
     template<class... Args>
-    upcall_guard direct_upcall(Args&&... args)
+    void direct_upcall(Args&&... args)
     {
         assert(op_storage_.has_value() &&
                "direct_upcall must not be called on an invalid operation.");
 
         op_storage_.release_bind(std::forward<Args>(args)...)();
-        return {};
     }
 
     template<class H, class E>
@@ -127,7 +126,7 @@ public:
         composed_op<OperationBody, Handler, IoExecutor, stable> const& op,
       Ex const& = Ex{})
     {
-        return asio::get_associated_executor(
+        return associated_executor<Handler, IoExecutor>::get(
           op.op_storage_.handler().upcall_,
           op.op_storage_.handler().guard_.get_executor());
     }
@@ -150,8 +149,8 @@ public:
         composed_op<OperationBody, Handler, IoExecutor, stable> const& op,
       A const& alloc = A{})
     {
-        return asio::get_associated_allocator(op.op_storage_.handler().upcall_,
-                                              alloc);
+        return associated_allocator<Handler, A>::get(
+          op.op_storage_.handler().upcall_, alloc);
     }
 };
 

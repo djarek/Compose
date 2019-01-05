@@ -26,14 +26,14 @@ transformed_operation<Op>::transformed_operation(Args&&... args)
 template<typename Op>
 template<typename... Args>
 void
-transformed_operation<Op>::run(Args&&... args) &&
+transformed_operation<Op>::run(Args&&... args)
 {
     op_.run(std::forward<Args>(args)...);
 }
 
 template<typename Op>
 Op
-transformed_operation<Op>::release() &&
+transformed_operation<Op>::release()
 {
     return std::move(op_);
 }

@@ -37,7 +37,7 @@ public:
      * @param args Arguments passed to function call operator of OperationBody
      */
     template<typename... Args>
-    void run(Args&&... args) &&;
+    void run(Args&&... args);
 
     /**
      * Release ownership of an operation. The user is responsible on calling
@@ -47,7 +47,7 @@ public:
      *
      * @returns The move-constructed operation object
      */
-    Op release() &&;
+    Op release();
 
 private:
     Op op_;

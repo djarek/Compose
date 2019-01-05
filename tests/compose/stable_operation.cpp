@@ -16,44 +16,33 @@
 namespace compose_tests
 {
 
-template<typename TimerType>
+template<class TimerType>
 struct noncopyable_op
 {
     noncopyable_op(noncopyable_op const&) = delete;
     noncopyable_op(noncopyable_op&&) = delete;
 
-    template<typename YieldToken>
-    compose::upcall_guard operator()(YieldToken&& yield_token,
+    template<class Self>
+    compose::upcall_guard operator()(compose::yield_token<Self> yield,
                                      boost::system::error_code ec = {})
     {
-        COMPOSE_REENTER(coro_state_)
-        {
-            if (i_ == 0)
-                return std::move(yield_token).upcall(ec);
+        if (ec || i_-- == 0)
+            return yield.direct_upcall(ec);
 
-            for (i_ = 0; i_ < 5; ++i_)
-            {
-                timer_.expires_from_now(duration_);
-                COMPOSE_YIELD timer_.async_wait(std::move(yield_token));
-                if (ec)
-                    break;
-            }
-
-            return std::move(yield_token).direct_upcall(ec);
-        }
+        timer_.expires_from_now(duration_);
+        return timer_.async_wait(yield);
     }
 
     TimerType& timer_;
     std::chrono::milliseconds duration_;
-    int i_;
-    compose::coroutine coro_state_{};
+    unsigned i_;
 };
 
-template<typename TimerType, typename CompletionToken>
+template<class TimerType, class CompletionToken>
 auto
 async_op(TimerType& timer,
          std::chrono::milliseconds d,
-         int i,
+         unsigned i,
          CompletionToken&& tok)
   -> BOOST_ASIO_INITFN_RESULT_TYPE(CompletionToken,
                                    void(boost::system::error_code))
@@ -61,9 +50,16 @@ async_op(TimerType& timer,
     boost::asio::async_completion<CompletionToken,
                                   void(boost::system::error_code)>
       init{tok};
-    auto op = compose::stable_transform<noncopyable_op<TimerType>>(
-      timer.get_executor(), init, std::piecewise_construct, timer, d, i);
-    std::move(op).run();
+
+    if (i == 0)
+    {
+        i = 1;
+        d = {};
+    }
+
+    compose::stable_transform<noncopyable_op<TimerType>>(
+      timer.get_executor(), init, std::piecewise_construct, timer, d, i)
+      .run();
     return init.result.get();
 }
 
@@ -72,7 +68,7 @@ async_op(TimerType& timer,
 int
 main()
 {
-    for (int i = 0; i < 2; ++i)
+    for (unsigned i = 0u; i < 2u; ++i)
     {
         boost::asio::io_context ctx;
         boost::asio::steady_timer timer{ctx};
@@ -81,7 +77,7 @@ main()
 
         compose_tests::async_op(
           timer,
-          std::chrono::milliseconds{1},
+          std::chrono::milliseconds{100},
           i,
           [&invoked, &ec](boost::system::error_code ec_arg) {
               ec = ec_arg;

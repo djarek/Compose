@@ -37,5 +37,10 @@ main()
       explicit_constructible(42), 43};
     BOOST_TEST(compose::detail::get<1>(t) == 43);
     BOOST_TEST(compose::detail::get<0>(t).i_ == 42);
+
+    int i = 43, j = 42;
+    compose::detail::lean_tuple<int&, int&> t2{i, j};
+    BOOST_TEST(compose::detail::get<1>(t2) == 42);
+    BOOST_TEST(compose::detail::get<0>(t2) == 43);
     return boost::report_errors();
 }
