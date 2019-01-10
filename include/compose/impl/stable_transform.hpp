@@ -19,10 +19,10 @@ namespace compose
 namespace detail
 {
 
-template<typename OperationBody,
+template<typename Signature,
+         typename OperationBody,
          typename Executor,
          typename CompletionToken,
-         typename Signature,
          typename... Args>
 auto
 stable_transform(
@@ -52,7 +52,7 @@ stable_transform(
   std::piecewise_construct_t,
   Args&&... args)
 {
-    return detail::stable_transform<OperationBody>(
+    return detail::stable_transform<Signature, OperationBody>(
       ex, init, std::forward<Args>(args)...);
 }
 

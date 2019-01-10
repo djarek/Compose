@@ -13,6 +13,8 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/core/lightweight_test.hpp>
 
+#include <boost/asio/write.hpp>
+
 namespace compose_tests
 {
 
@@ -63,6 +65,21 @@ async_op(TimerType& timer,
     return init.result.get();
 }
 
+namespace net = boost::asio;
+using boost::system::error_code;
+
+template<class Context, class Token>
+auto
+async_post(Context& ctx, Token&& token)
+{
+    auto ex = ctx.get_executor();
+    net::async_completion<Token, void()> completion(token);
+    compose::stable_transform(
+      ex, completion, [](auto yield) { return yield.upcall(); })
+      .run();
+    return completion.result.get();
+}
+
 } // namespace compose_tests
 
 int
@@ -89,5 +106,17 @@ main()
         BOOST_TEST(invoked == 1);
         BOOST_TEST(!ec);
     }
+
+    {
+        boost::asio::io_context ctx;
+        int invoked = 0;
+
+        compose_tests::async_post(ctx, [&invoked]() { ++invoked; });
+
+        ctx.run();
+
+        BOOST_TEST(invoked == 1);
+    }
+
     return boost::report_errors();
 }
